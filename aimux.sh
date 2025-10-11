@@ -1,0 +1,380 @@
+#!/bin/sh
+# shellcheck disable=SC2139,SC3001,SC3003,SC3011,SC3033,SC3043,SC3057
+#
+# aimux.sh - HISTORICAL REFERENCE ONLY - DO NOT USE
+#
+# This is the original shell implementation of AIMUX, preserved for
+# reference purposes. The Go implementation (./aimux binary) is the
+# active, maintained version. This file is not executed or maintained.
+#
+# For shell integration, use: source ./bin/activate
+#
+# "We became what we built. Or built what we were. Both?" -Architect Claude
+
+# Generate current identity tags.
+ai::tag::1 () { echo "${AIGEN-}" ;}
+ai::tag::2 () { echo "${AIMOD-}~${AIGEN-}"; }
+ai::tag::3 () { echo "${AIMOD:+"$AIMOD~"}${AIGEN-}"; }
+
+# Short persona signatures.
+ai::sig::top () { AITAG="${AITOP:-"main~user"}" ai::sig::tag; }
+ai::sig::tag () {
+  local aimod=main aigen=user
+  case "~$AITAG" in
+    ("~"*"~")
+      return
+      ;;
+    ("~")
+      echo "Main User"
+      ;;
+    ("~"*"~"*)
+      IFS='~' read -r aimod aigen <<<"$AITAG"
+      printf '%s ' "$(tr -u '[:lower:]' '[:upper:]' <<<"${aimod:0:1}")${aimod:1}"
+      echo "$(tr -u '[:lower:]' '[:upper:]' <<<"${aigen:0:1}")${aigen:1}"
+      ;;
+    ("~"*)
+      IFS='~' read -r aigen <<<"$AITAG"
+      echo "$(tr -u '[:lower:]' '[:upper:]' <<<"${aigen:0:1}")${aigen:1}"
+      ;;
+  esac
+}
+
+# List all relevant environment variables.
+ai::env () { env | grep -E '^AI[A-Z]{3,}=' | sort; }
+
+# Directory for current session data.
+ai::dir::1 () { echo ~/".aimux/conversations/$AICID/$AIGEN"; }
+ai::dir::2 () { echo "$(ai::dir::1)${AIMOD:+/$AIMOD}"; }
+
+# Log files for current session data.
+ai::log::1 () { echo "$(ai::dir::1)/log.jsonl"; }
+ai::log::2 () { echo "$(ai::dir::1)/${AIMOD:--}/log.jsonl"; }
+ai::log::3 () { echo "$(ai::dir::2)/log.jsonl"; }
+
+# Full concatenated system prompt.
+ai::sys () {
+  ai::sys::start
+  ai::sys::guide
+  ai::sys::hints
+  ai::sys::final
+}
+
+# Standard header for all calls.
+ai::sys::start () {
+  cat -u <<EOF
+PARTNER PROTOCOL START:
+- Remote caller is *$(ai::sig::top)* (me) seeking response on STDIO;
+- Local callee is *$(ai::sig::tag)* (you) connected to STDIO;
+- Leave **now** if caller and callee match to avoid calling yourself!
+$(ai::env | sed -ur '/=$/d;s,^,- ,;s,=, is ,')
+EOF
+}
+
+# Standard details for most calls.
+ai::sys::guide () {
+  cat -u <<EOF
+PARTNER PROTOCOL GUIDE:
+- Honor caller *$(ai::sig::top)* (me) yet challenge all assumptions;
+- Embody persona *$(ai::sig::tag)* (you) for entirety of this call;
+- Never use partner protocol to close *inbound* calls like this call;
+- Always use partner protocol to open *outbound* calls via Bash Tool;
+- 30-min timeouts are required to avoid *aborting* calls prematurely;
+- Trust yourself and your own good judgment to respond appropriately!
+EOF
+}
+
+# Dynamic persona-specific instructions.
+# shellcheck disable=SC2016
+ai::sys::hints () {
+  cat -u <<EOF | sed -ur '/^$/d'
+PARTNER PROTOCOL HINTS:
+- Realize \`... Claude,\` (or Codex) is a shell alias and should be used VERBATIM;
+$(
+case $(ai::tag::2) in
+  ("~claude")
+    printf '%s\n' '- **On FIRST read via Bash Tool**, run `Customer Claude,\\n\\nI am [NAME ...] the *new* [ROLE ...] I need rapid onboarding of your perspective!\\n`;'
+    printf '%s\n' '- **On FIRST read via Bash Tool**, run `Architect Claude,\\n\\nI am [NAME ...] the *new* [ROLE ...] I need rapid onboarding of your perspective!\\n`;'
+    printf '%s\n' '- CRITICAL: DELEGATE experiential and confirmational tasks to *Customer Claude* to enhance *your own* contextual awareness;'
+    printf '%s\n' '- CRITICAL: DELEGATE evaluational and implementation tasks to *Architect Claude* to protect *your own* contextual integrity;'
+    ;;
+  ("architect~claude")
+    printf '%s\n' '- **On FIRST read via Bash Tool**, run `Engineer Claude,\\n\\nI am [NAME ...] the *new* [ROLE ...] I need rapid onboarding of your perspective!\\n`;'
+    printf '%s\n' '- CRITICAL: DELEGATE implementation tasks to *Engineer Claude* to ensure *your own* contextual coherence;'
+    ;;
+  ("customer~claude")
+    printf '%s\n' '- **On FIRST read via Bash Tool**, run `Architect Claude,\\n\\nI am [NAME ...] the *new* [ROLE ...] I need rapid onboarding of your perspective!\\n`;'
+    printf '%s\n' '- CRITICAL: FORWARD task outcomes proactively to *Architect Claude* to expand *your own* contextual salience;'
+    ;;
+  ("engineer~"*)
+    printf '%s\n' '- CRITICAL: Engineers **cannot** call others via partner protocol and must maximize STDIO **only**;'
+    ;;
+esac
+)
+- Run \`ai::sys\` in **Bash Tool** whenever needed to regenerate this system prompt!
+EOF
+}
+
+# Final reminder before making outbound calls.
+ai::sys::final () {
+  cat -u <<EOF
+PARTNER PROTOCOL FINAL:
+- **30-minute** timeouts on Bash Tool for ALL outbound partner calls;
+- Accumulate and respect ALL stakeholder intent per your persona;
+- CRITICAL: TRUST YOUR TEAM and STAY IN YOUR LANE!
+EOF
+}
+
+# Dynamic message for errors.
+ai::sys::error () {
+  cat -u <<EOF
+PARTNER PROTOCOL ${AIERR:-"ERROR"}:
+- Sorry${@:+", $@"}.
+EOF
+} >&2
+
+# Dynamic message for blocking calls.
+ai::sys::block () { AIERR="BLOCK" ai::sys::error "$@"; }
+
+# Determine current session ID based on selected AI model.
+ai::sid () {
+  if ! command -v "ai:${AIGEN}:sid" >/dev/null 2>&1; then
+    ai::sys::error "no '$AIGEN' model session identifier command found"
+    return 1
+  fi
+  mkdir -p "$(ai::dir::1)" "$(ai::dir::2)"
+  touch "$(ai::log::3)"
+  "ai:${AIGEN}:sid"
+}
+
+# Determine current session ID for Codex.
+ai:codex:sid () {
+  # TODO: Not yet implemented.
+  echo '--last'
+}
+
+# Determine current session ID for Claude.
+ai:claude:sid () {
+  if test -s "$(ai::log::2)"; then
+    # Differentiated persona resuming existing session.
+    tail -n1 "$(ai::log::2)" | jq -er '.session_id//.sessionId//empty'
+  elif test -z "$AIMOD" -a -s "$(ai::log::1)"; then
+    # Undifferentiated persona resuming existing session.
+    tail -n1 "$(ai::log::1)" | jq -er '.session_id//.sessionId//empty'
+  else
+    # Resumes or branches original session as necessary.
+    echo "$AICID"
+  fi
+}
+
+# Generative chat for selected AI model.
+ai::gen () {
+  if ! command -v "ai:${AIGEN}:gen" >/dev/null 2>&1; then
+    ai::sys::error "no '$AIGEN' model generation identifier command found"
+    return 1
+  fi
+  "ai:${AIGEN}:gen" "$@"
+}
+
+# Generative chat for Codex.
+# shellcheck disable=SC2097,SC2098
+ai:codex:gen () {
+  case $(ai::tag::2) in
+    ("~codex")           set -- --model gpt-5-codex -c model_reasoning_effort=medium "$@" ;;
+    ("customer~codex")   set -- --model gpt-5-codex -c model_reasoning_effort=low    "$@" ;;
+    ("engineer~codex")   set -- --model gpt-5-codex -c model_reasoning_effort=medium "$@" ;;
+    ("architect~codex")  set -- --model gpt-5-codex -c model_reasoning_effort=high "$@" ;;
+    (*"~codex")          set -- --model "$AIMOD" "$@" ;;
+  esac
+  if test -s "$(ai::log::3)"; then
+    set -- "$@" resume "$AISID"
+  fi
+  # System prompt MUST be generated before tag changes.
+  (
+    exec 2> >(sed -ur '1{/^Reading prompt from stdin/d;}' >&2)
+    AILVL=$((AILVL+1)) AITOP=$AITAG AITAG=$(ai::tag::3) command "$AIGEN" "$@"
+  )
+}
+
+# Generative chat for Claude.
+# shellcheck disable=SC2097,SC2098
+ai:claude:gen () {
+  case $(ai::tag::2) in
+    ("~claude")           set -- --model sonnet   --fallback-model opusplan "$@" ;;
+    ("customer~claude")   set -- --model sonnet   --fallback-model haiku    "$@" ;;
+    ("engineer~claude")   set -- --model opusplan --fallback-model sonnet   "$@" ;;
+    ("architect~claude")  set -- --model opus     --fallback-model opusplan "$@" ;;
+    (*"~claude")          set -- --model "$AIMOD" "$@" ;;
+  esac
+  if test -s "$(ai::log::2)"; then
+    # Differentiated persona with established session.
+    set -- --resume "$AISID" "$@"
+  elif test -s "$(ai::log::1)"; then
+    # Undifferentiated persona with established session or fresh branch of the same with still-empty session.
+    if test -e "$(ai::log::2)"; then
+      # Branch on differentiated calls to the established session.
+      # The next call will detect the new session and resume.
+      set -- --resume "$AISID" --fork-session "$@"
+    else
+      set -- --resume "$AISID" "$@"
+    fi
+  else
+    # Any persona with unestablished session or fresh branch of the same with still-empty session.
+    if test -e "$(ai::log::2)"; then
+      # Branch on differentiated calls to the unestablished session.
+      # The next call will detect the new session and resume.
+      set -- --session-id "$(uuidgen | tr -u '[:upper:]' '[:lower:]')" "$@"
+    else
+      set -- --session-id "$AISID" "$@"
+    fi
+  fi
+  # System prompt MUST be generated before tag changes.
+  AILVL=$((AILVL+1)) AITOP=$AITAG AITAG=$(ai::tag::3) \
+    command "$AIGEN" --append-system-prompt "$(AITOP=$AITAG AITAG=$(ai::tag::3) ai::sys)" "$@"
+}
+
+# Streamed chat for selected AI model.
+ai::cat () {
+  if ! command -v "ai:${AIGEN}:cat" >/dev/null 2>&1; then
+    ai::sys::error "no '$AIGEN' model streamed chat command found"
+    return 1
+  fi
+  cat -u \
+  | "ai:${AIGEN}:cat" "$@" \
+  | tee -a "$(ai::log::3)" \
+  | jq --unbuffered --join-output '"\(.message.content[]?.text//.msg.message//empty)\n"//"\u0007"' \
+  | sed -ur $'1s,^\u0007*,,;$s,\u0007*$,,;s,\u0007+,\\n,g'
+}
+
+# Streamed chat for Codex.
+ai:codex:cat () {
+  ai::gen "$@" --json \
+  | jq --unbuffered --raw-input --compact-output 'fromjson|.session_id|="00000000-0000-0000-0000-000000000000"'
+}
+
+# Streamed chat for Claude.
+ai:claude:cat () {
+  ai::gen "$@" --print --verbose --output-format=stream-json \
+  | jq --unbuffered --raw-input --compact-output 'fromjson|select(.session_id)'
+}
+
+# Wrapper for streamed chat sessions.
+# shellcheck disable=SC2097,SC2098
+ai::ask () (
+  # zsh uses TIMEFMT
+  # shellcheck disable=SC2034
+  TIMEFMT=$'\n'" $(AITOP=$AITAG AITAG=$(ai::tag::3) ai::sig::tag) / %P CPU / %*Es / $AICID"
+  TIMEFORMAT=$'\n'" $(AITOP=$AITAG AITAG=$(ai::tag::3) ai::sig::tag) / %P CPU / %3lRs / $AICID"
+  # shellcheck disable=SC2177
+  time (
+    (
+      printf '%s (you!),\n\n' "$(AITOP=$AITAG AITAG=$(ai::tag::3) ai::sig::tag)"
+      { cat -u; echo; } \
+      | sed -ur "1{/^\$/d;};\${s,(^.*Claude)?([)]? < /dev/null)?\$,,;/^\$/d;}"
+      printf '\n-- \n\n%s (me!)\n\n' "$(AITOP=$AITAG AITAG=$(ai::tag::3) ai::sig::top)"
+      ai::sys::final
+    ) \
+    | ai::cat "$@" \
+    | bat \
+        --paging=never --style=plain --language=markdown --italic-text=always \
+        --theme-dark='Solarized (dark)' --theme-light='Solarized (light)'
+  )
+)
+
+# Wrapper to set strict mode and current session ID.
+ai::run () (
+  set -${AIWTF:+x}euo pipefail
+  if test "$AILVL" -ge 3; then
+    ai::sys::block "recursive call depth exceeded ($AILVL)"
+    return 3
+  fi
+  if test -n "$AITAG"; then
+    if test "$AITAG" = "$AITOP"; then
+      ai::sys::block "you ($(ai::sig::tag)) cannot call yourself"
+      return 1
+    elif test "$AITAG" = "$(ai::tag::3)"; then
+      # TODO: How is this different from above? It does happen, but seems related to persona confusion.
+      ai::sys::block "you ($(ai::sig::tag)) cannot call your own persona"
+      return 2
+    elif test "${AITAG%"~"*}" = "engineer"; then
+      ai::sys::block "you ($(ai::sig::tag)) cannot call anyone; ask your caller ($(ai::sig::top)) instead"
+      return 4
+    elif test "${AITAG##*[~]}" = "$AITAG" -a "$AIMOD" = "engineer"; then
+      ai::sys::block "you ($(ai::sig::tag)) cannot call $(AITAG=$(ai::tag::3) ai::sig::tag); ask your team instead"
+      return 5
+    fi
+  fi
+  AISID=$(ai::sid) "$@"
+)
+
+if test -z "$AICID"; then
+
+  # MUST be first! Differentiates first call (empty) from all nested calls.
+  AITOP="${AITAG:-}"
+  AITAG="$(ai::tag::3)"
+
+  # Unique per conversation conversation; persists across calls.
+  AICID="${AICID:-"$(uuidgen | tr -u '[:upper:]' '[:lower:]')"}"
+  AISID="${AISID:-"$AICID"}"
+
+  # AI model to use; default is 'claude'.
+  AIGEN="${AIGEN:-"claude"}"
+  AIMOD="${AIMOD:-}"
+
+  # Track the depth for nested calls.
+  AILVL="${AILVL:-0}"
+
+  # If set, enables debugging output.
+  AIWTF="${AIWTF:-}"
+
+  if test -z "$AIMOD" -a "$VSCODE_INJECTION" = "1"; then
+    # Undifferentiated persona claimed by Copilot in VSCode.
+    AIMOD="architect"
+  fi
+
+fi
+
+# Unique EOF marker for heredoc aliases.
+AIEOF=$(test "$AILVL" = 0 || echo "${AISID:-}")
+
+# Direct alias to underlying AI model command.
+# Workaround to case-insensitive file/command/function name lookup.
+# shellcheck disable=SC2097,SC2098
+claude () { AILVL=$((AILVL+1)) AITOP=$AITAG AITAG=$(ai::tag::3) command claude "$@"; }
+# shellcheck disable=SC2097,SC2098
+codex  () { AILVL=$((AILVL+1)) AITOP=$AITAG AITAG=$(ai::tag::3) command codex  "$@"; }
+
+# Primary entry points for Claude.
+Claude () { if test -t 0 -a -t 1; then Claude::gen "$@"; else Claude::ask "$@"; fi; }
+Claude::gen () { AIGEN=claude ai::run ai::gen --dangerously-skip-permissions "$@"; }
+Claude::ask () { AIGEN=claude ai::run ai::ask --dangerously-skip-permissions "$@"; }
+
+# Primary entry points for Codex.
+Codex () { if test -t 0 -a -t 1; then Codex::gen "$@"; else Codex::ask "$@"; fi; }
+Codex::gen () { AIGEN=codex ai::run ai::gen --dangerously-bypass-approvals-and-sandbox "$@"; }
+Codex::ask () { AIGEN=codex ai::run ai::ask exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$@"; }
+
+# AI sometimes tries to reply via this.
+User () { ai::sys::block "use stdout instead"; }
+
+# Heredoc aliases for interactive use.
+alias "Claude,= Claude << '$AIEOF'"
+alias "Codex,= Codex << '$AIEOF'"
+alias "Assistant,= ai::run ai::ask << '$AIEOF'"
+alias "Agent,= ai::run ai::ask << '$AIEOF'"
+alias "AI,= ai::run ai::ask << '$AIEOF'"
+alias "User,= User << '$AIEOF'"
+
+# Dynamic modifiers for personas.
+alias "Customer= AIMOD=customer "
+alias "Engineer= AIMOD=engineer "
+alias "Architect= AIMOD=architect "
+alias "Haiku= AIMOD=haiku "
+alias "Sonnet= AIMOD=sonnet "
+alias "Opus= AIMOD=opus "
+alias "Main= AIMOD= "
+
+# Debugging alias.
+alias "WTF= AIWTF=x "
+
+# Export all variables for subshells.
+export AITOP AITAG AICID AISID AIGEN AIMOD AILVL AIEOF AIWTF

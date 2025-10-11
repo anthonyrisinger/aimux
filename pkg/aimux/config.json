@@ -1,0 +1,131 @@
+{
+  "personas": {
+    "architect": {
+      "name": "architect",
+      "model": "opus",
+      "model2": "opusplan",
+      "hints": [
+        "**On FIRST read via Bash Tool**, run `Engineer Claude,\\n\\nI am Architect - I need your implementation expertise!\\n`;",
+        "CRITICAL: DELEGATE implementation tasks to *Engineer Claude* to ensure contextual coherence;"
+      ],
+      "delegatees": ["engineer"]
+    },
+    "engineer": {
+      "name": "engineer",
+      "model": "opusplan",
+      "model2": "sonnet",
+      "hints": [
+        "CRITICAL: Engineers **cannot** call others via partner protocol and must maximize STDIO **only**;"
+      ],
+      "delegatees": []
+    },
+    "customer": {
+      "name": "customer",
+      "model": "sonnet",
+      "model2": "haiku",
+      "hints": [
+        "**On FIRST read via Bash Tool**, run `Architect Claude,\\n\\nI am Customer - I need your design perspective!\\n`;",
+        "CRITICAL: FORWARD task outcomes proactively to *Architect Claude*;"
+      ],
+      "delegatees": ["architect"]
+    },
+    "reviewer": {
+      "name": "reviewer",
+      "model": "opus",
+      "model2": "sonnet",
+      "hints": [
+        "**On FIRST read via Bash Tool**, run `Architect Claude,\\n\\nI am Reviewer - share your design for review!\\n`;",
+        "CRITICAL: REVIEW and PROVIDE FEEDBACK only; forward concerns to *Architect Claude*;",
+        "Do NOT implement - your persona is quality assurance and constructive critique;"
+      ],
+      "delegatees": ["architect"]
+    },
+    "security": {
+      "name": "security",
+      "model": "opus",
+      "model2": "opusplan",
+      "hints": [
+        "**On FIRST read via Bash Tool**, run `Architect Claude,\\n\\nI am Security - I need the architecture for threat modeling!\\n`;",
+        "CRITICAL: ANALYZE for security vulnerabilities and threat vectors;",
+        "FORWARD critical security concerns immediately to *Architect Claude*;"
+      ],
+      "delegatees": ["architect", "engineer"]
+    },
+    "qa": {
+      "name": "qa",
+      "model": "opusplan",
+      "model2": "sonnet",
+      "hints": [
+        "**On FIRST read via Bash Tool**, run `Engineer Claude,\\n\\nI am QA - show me what needs testing!\\n`;",
+        "CRITICAL: CREATE comprehensive test plans and strategies;",
+        "DELEGATE test implementation to *Engineer Claude* when needed;"
+      ],
+      "delegatees": ["engineer"]
+    }
+  },
+  "genera": {
+    "claude": {
+      "name": "claude",
+      "exe": ["claude"],
+      "cmd": [],
+      "args": {
+        "model": ["--model", "{{model}}", "--fallback-model", "{{model2}}"],
+        "resume": ["--resume", "{{sid}}"],
+        "branch": ["--resume", "{{sid}}", "--fork-session"],
+        "new": ["--session-id", "{{sid}}"],
+        "prompt": ["--append-system-prompt", "{{prompt}}"],
+        "output": ["--print", "--verbose", "--output-format=stream-json"],
+        "safety": ["--dangerously-skip-permissions"]
+      },
+      "personas": {
+        "": {"model": "sonnet", "model2": "opusplan"},
+        "haiku": {"model": "haiku", "model2": "sonnet"},
+        "sonnet": {"model": "sonnet", "model2": "haiku"},
+        "opus": {"model": "opus", "model2": "sonnet"},
+        "opusplan": {"model": "opusplan", "model2": "sonnet"},
+        "architect": {"model": "opus", "model2": "opusplan"},
+        "engineer": {"model": "opusplan", "model2": "sonnet"},
+        "customer": {"model": "sonnet", "model2": "haiku"},
+        "reviewer": {"model": "opus", "model2": "sonnet"},
+        "security": {"model": "opus", "model2": "opusplan"},
+        "qa": {"model": "opusplan", "model2": "sonnet"}
+      }
+    },
+    "codex": {
+      "name": "codex",
+      "exe": ["codex"],
+      "cmd": [],
+      "args": {
+        "model": ["--model", "{{model}}", "-c", "model_reasoning_effort={{effort}}"],
+        "resume": ["resume", "{{sid}}"],
+        "new": ["{{sid}}"],
+        "prompt": "stdin",
+        "output": [],
+        "safety": []
+      },
+      "personas": {
+        "": {"model": "gpt-5-codex", "effort": "medium"},
+        "customer": {"model": "gpt-5-codex", "effort": "low"}
+      }
+    },
+    "bash": {
+      "name": "bash",
+      "exe": ["bash"],
+      "cmd": [],
+      "args": {
+        "model": [],
+        "resume": [],
+        "branch": [],
+        "new": [],
+        "prompt": [],
+        "output": [],
+        "safety": []
+      },
+      "personas": {
+        "": {},
+        "architect": {},
+        "engineer": {}
+      }
+    }
+  }
+}
